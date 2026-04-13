@@ -2,7 +2,28 @@
 
 This repository stores reusable coding skills for your projects.
 
-- `backend/` contains the Go backend skill with conventions for architecture, sqlc workflow, query naming, file layout, and review rules.
-- `frontend/` contains the Next.js dashboard/frontend skill with conventions for route structure, services, hooks, and components organization.
+- `backend/` contains `backend-golang-style` (Go backend conventions).
+- `frontend/` contains `frontend-nextjs-dashboard-style` (Next.js dashboard/frontend conventions).
 
 Use these skill files as baseline guidance when implementing new features or reviewing code for consistency.
+
+## Install With npx skills add
+
+List available skills from this repo:
+
+```bash
+npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --list --full-depth
+```
+
+Install both skills globally:
+
+```bash
+npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --all -g
+```
+
+Install one skill globally:
+
+```bash
+npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill backend-golang-style -g -y
+npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill frontend-nextjs-dashboard-style -g -y
+```
