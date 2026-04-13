@@ -1,5 +1,5 @@
 ---
-name: frontend-nextjs-dashboard-style
+name: kinyanjui-nextjs-skill
 description: Implement and review Next.js dashboard frontend changes with clear folder organization for app routes, API service modules, hooks, and components. Use when adding pages, wiring server-side API calls, creating service files, structuring components, and enforcing consistent frontend architecture for admin/dashboard systems.
 ---
 

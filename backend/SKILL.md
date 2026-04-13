@@ -1,5 +1,5 @@
 ---
-name: backend-golang-style
+name: kinyanjui-ui-golang-skill
 description: Implement and review Go backend changes using layered handler-service-data architecture, sqlc query workflows, and maintainable file organization. Use when adding API endpoints, refactoring backend domains, writing SQL query files, generating sqlc code, and enforcing consistent conventions across cmd, internal, services, pkg, infrastructure, and orchestrator folders.
 ---
 
