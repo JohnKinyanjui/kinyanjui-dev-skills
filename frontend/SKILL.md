@@ -8,6 +8,7 @@ description: Implement and review Next.js dashboard frontend changes with clear 
 ## Overview
 
 Use this skill for Next.js App Router dashboards where frontend code is organized around:
+
 - route modules in `app/`
 - API service modules in `lib/services/`
 - reusable UI and feature components in `components/`
@@ -58,6 +59,7 @@ types/
 Use this domain split as default for dashboard-heavy apps.
 
 App route groups:
+
 - `app/dashboard/chats`
 - `app/dashboard/customers`
 - `app/dashboard/employees`
@@ -72,6 +74,7 @@ App route groups:
 - `app/dashboard/templates`
 
 Service domains:
+
 - `lib/services/accounts`
 - `lib/services/analytics`
 - `lib/services/chats`
@@ -85,6 +88,7 @@ Service domains:
 - `lib/services/subscriptions`
 
 Component groups:
+
 - `components/ui` for primitives
 - `components/shared` for cross-domain blocks
 - `components/features` for feature/domain composition
@@ -93,6 +97,7 @@ Component groups:
 ## Service Layer Rules (Server-Side API Focus)
 
 - Keep server/API communication in `lib/services`, not directly in pages/components.
+- Use server functions for service operations and auth-sensitive requests.
 - Use feature folders under domain paths, for example:
   - `lib/services/listing/products/...`
   - `lib/services/accounts/customers/...`
@@ -103,6 +108,9 @@ Component groups:
   - `post.ts` create
   - `put.ts` update
   - `delete.ts` delete
+- Every operation file (`get.ts`, `post.ts`, `put.ts`, `delete.ts`) must include `"use server"` at the top.
+- For authenticated server calls, always resolve token with `const token = await getAccessToken();` and send it in the request headers.
+- Handle cookie read/write in server functions using Next.js cookies APIs; keep cookie persistence/refresh logic in shared auth/http utilities, not in UI components.
 - Use `hook.ts` for feature-specific React Query hooks when needed.
 - Use `index.ts` as feature-level export surface.
 - Use `utils.ts` for service-local helpers and keep them private unless cross-feature reuse is required.
@@ -129,21 +137,27 @@ When a feature is partial, include only needed files but keep canonical names.
 ## Implementation Workflow
 
 1. Define contracts first.
+
 - Add/update `data.ts` for response models and request payloads.
 
 2. Implement API operations.
+
 - Add required `get/post/put/delete` files under service feature folder.
 
 3. Add hooks for server state.
+
 - Add or update `hook.ts` for query/mutation orchestration.
 
 4. Build feature UI.
+
 - Create/update components under `components/features/...`.
 
 5. Wire route page.
+
 - Compose feature components in `app/dashboard/.../page.tsx`.
 
 6. Export cleanly.
+
 - Update `index.ts` exports in service and component modules when needed.
 
 ## Code Quality Rules
@@ -161,10 +175,14 @@ When a feature is partial, include only needed files but keep canonical names.
 "use server";
 
 import { clientV1 } from "@/lib/shared/http/client";
+import { getAccessToken } from "@/lib/shared/http/auth";
 import { Product } from "./data";
 
 export async function getProduct(id: string): Promise<Product> {
-  const res = await clientV1.get<Product>(`products/${id}`);
+  const token = await getAccessToken();
+  const res = await clientV1.get<Product>(`products/${id}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   return res.data;
 }
 ```

@@ -8,6 +8,7 @@ description: Implement and review Go backend changes using layered handler-servi
 ## Overview
 
 Use this skill for general Go backend work with a consistent architecture:
+
 - handlers are thin
 - services hold business logic
 - SQL lives in query files
@@ -43,16 +44,19 @@ orchestrator/                     # orchestration/runtime deployment helpers
 ## Execution Workflow
 
 1. Classify the change before coding.
+
 - API route change: update handler files and router wiring.
 - Business logic change: update services and supporting utils.
 - Data/query change: update `query` or `pb_query` then run sqlc.
 
 2. Implement from top to bottom with strict layering.
+
 - Handler layer: parse request/context and call service.
 - Service layer: validate input, enforce business rules, call db/query functions.
 - Data layer: write SQL in query files; never in service strings.
 
 3. Validate incrementally.
+
 - Run targeted package tests first.
 - Run broader `go test ./...` when practical.
 - Ensure compile passes after sqlc generation.
@@ -63,16 +67,47 @@ orchestrator/                     # orchestration/runtime deployment helpers
 - Always write query changes in `internal/db/query` or `internal/db/pb_query`, then run `sqlc generate`.
 - Keep SQL statements lowercase.
 - Keep sqlc query annotation names in Upper Camel Case.
+- Prefer returning sqlc-generated types directly from services (for example `[]admin.ListAdminSubscriptionsRow`) instead of creating duplicate response models/builders unless a transformation is truly required by API contract.
 - Keep handlers thin; move business logic into services.
 - Keep functions short; split long logic into focused helpers.
 - Put shared service-local logic in `utils.go`.
 - Keep every function in `utils.go` private (unexported, lowercase function names).
+
+### Model reuse example (required default)
+
+```go
+// bad: creates extra response models/builders when not required
+func GetAllSubscriptions() (*SubscriptionsResponse, *helpers.ResultError) {
+    subscriptions, err := db.Admin.ListAdminSubscriptions(context.Background())
+    if err != nil {
+        return nil, helpers.Error("unable to get subscriptions", err)
+    }
+
+    result := buildSubscriptionsResponse(subscriptions)
+    return &result, nil
+}
+```
+
+```go
+// good: return sqlc-generated rows directly by default
+func GetAllSubscriptions() ([]admin.ListAdminSubscriptionsRow, *helpers.ResultError) {
+    subscriptions, err := db.Admin.ListAdminSubscriptions(context.Background())
+    if err != nil {
+        return nil, helpers.Error("unable to get subscriptions", err)
+    }
+
+    return subscriptions, nil
+}
+```
+
+Only introduce custom response structs/builders when there is a real API contract transformation requirement.
 
 ## SQLC Conventions
 
 ### Query annotation naming
 
 Use verb-first Upper Camel Case names:
+
 - `GetUser`
 - `ListOrders`
 - `CreateProduct`
@@ -212,3 +247,4 @@ func normalizeStatus(raw string) string {
 - Reject uppercase SQL keywords if project standard is lowercase SQL.
 - Reject exported helper functions in `utils.go`.
 - Reject large service files that should be split into nested feature folders.
+- Reject unnecessary custom response wrappers/builders when sqlc-generated models can be returned directly.
