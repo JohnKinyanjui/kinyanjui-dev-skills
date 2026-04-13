@@ -12,20 +12,20 @@ Use these skill files as baseline guidance when implementing new features or rev
 List available skills from this repo:
 
 ```bash
-npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --list --full-depth
+npx skills add JohnKinyanjui/kinyanjui-dev-skills --list --full-depth
 ```
 
 Install both skills globally:
 
 ```bash
-npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --all -g
+npx skills add JohnKinyanjui/kinyanjui-dev-skills --all -g
 ```
 
 Install one skill globally:
 
 ```bash
-npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-golang-backend-skill -g -y
-npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-nextjs-skill -g -y
-npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-ui-skill -g -y
+npx skills add JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-golang-backend-skill -g -y
+npx skills add JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-nextjs-skill -g -y
+npx skills add JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-ui-skill -g -y
 
 ```
