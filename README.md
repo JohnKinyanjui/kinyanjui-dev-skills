@@ -24,6 +24,8 @@ npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --all -g
 Install one skill globally:
 
 ```bash
-npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill backend-golang-style -g -y
-npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill frontend-nextjs-dashboard-style -g -y
+npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-golang-backend-skill -g -y
+npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-nextjs-skill -g -y
+npx skills add https://github.com/JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-ui-skill -g -y
+
 ```
