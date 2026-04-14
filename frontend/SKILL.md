@@ -221,10 +221,366 @@ export default function ProductsPage() {
 }
 ```
 
+## Next.js Backend with Prisma
+
+### Backend Architecture
+
+When Next.js is used as the backend (full-stack monorepo), follow this structure:
+
+```text
+lib/server/
+  db/                          # Prisma client and database utilities
+    prisma.ts                  # Prisma client singleton (CRITICAL)
+    seed.ts                    # Database seeding scripts
+    migrations/                # Migration utilities (if needed)
+  core/                        # Core business logic and utilities
+    errors.ts                  # Custom error classes and error handling
+    validation.ts              # Zod schemas and validation
+    pagination.ts              # Pagination helpers
+  auth/                        # Authentication utilities
+    session.ts                 # Session management
+    permissions.ts             # Role/permission checks
+    guards.ts                  # Route guards and middleware helpers
+  http/                        # HTTP client and request utilities
+    client.ts                  # HTTP client configuration
+    auth.ts                    # Auth token handling for requests
+    helpers.ts                 # HTTP utility functions
+  domain/                      # Domain-driven service modules (organize by business domain)
+    accounts/
+    analytics/
+    billing/
+    catalog/
+      # Sub-folders when feature grows:
+      variants/
+        create.ts              # Nested feature: product variants
+        list.ts
+        utils.ts
+        index.ts
+    inventory/
+    orders/
+    # Each domain contains service files: create.ts, list.ts, update.ts, delete.ts, utils.ts, index.ts
+  integrations/                # Third-party service integrations
+    payment/
+      stripe.ts                # Payment provider integration
+    storage/
+      s3.ts                    # File storage integration
+    email/
+      sendgrid.ts              # Email service integration
+  services/                    # Deprecated - migrate to domain/ (legacy business logic)
+    products/
+      create.ts                # Business logic for creating products
+      update.ts                # Business logic for updating products
+      delete.ts                # Business logic with pre-delete checks
+      list.ts                  # Listing with filters, sorting, pagination
+      utils.ts                 # Private helpers for products domain only
+      index.ts                 # Service exports
+      # Sub-folders when feature grows:
+      variants/
+        create.ts              # Nested feature: product variants
+        list.ts
+        utils.ts
+        index.ts
+  types/                       # Server-side type definitions
+    api.ts                     # API response types
+    errors.ts                  # Error type definitions
+
+app/api/                       # API route handlers (thin layer)
+  [domain]/
+    route.ts                   # Domain-level routes (GET, POST)
+    [id]/
+      route.ts                 # Individual resource routes (GET, PUT, DELETE)
+
+prisma/
+  schema.prisma                # Database schema
+  migrations/                  # Auto-generated migrations
+```
+
+**Key Principle**: Keep business logic in `lib/server/services/`, not in API route handlers. API routes should only handle HTTP concerns (request/response parsing, status codes, headers).
+
+### Prisma Rules
+
+- **NEVER use raw SQL queries** - Always use Prisma Client for database operations
+- All SQL-like queries must be written in lowercase (user rule)
+- For CREATE and UPDATE queries, use `ON CONFLICT DO UPDATE SET` with the `id` field
+- For DELETE queries, use `ON CONFLICT DO NOTHING`
+- Always use `@` parameter syntax instead of `$1` positional parameters (when applicable)
+- Define all database models in `prisma/schema.prisma`
+- Run migrations using `npx prisma migrate dev` for development
+- Use `npx prisma generate` after schema changes
+
+### API Route Handlers with Prisma
+
+```typescript
+// app/api/products/route.ts
+import { prisma } from "@/lib/server/db/prisma";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function GET(request: NextRequest) {
+  try {
+    const products = await prisma.product.findMany({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json(products);
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to fetch products" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const product = await prisma.product.create({
+      data: body,
+    });
+    return NextResponse.json(product, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to create product" },
+      { status: 500 },
+    );
+  }
+}
+```
+
+### Error Prevention Patterns
+
+**1. Always Use Service Layer**
+
+```typescript
+// BAD: Business logic in API route
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const product = await prisma.product.create({ data: body }); // Direct DB call
+  return NextResponse.json(product);
+}
+
+// GOOD: Business logic in service layer
+// lib/server/services/products/create.ts
+export async function createProduct(data: CreateProductInput) {
+  const validated = productSchema.parse(data);
+  const slug = generateSlug(validated.name);
+  return prisma.product.create({
+    data: { ...validated, slug },
+  });
+}
+
+// app/api/products/route.ts
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const product = await createProduct(body);
+    return NextResponse.json(product, { status: 201 });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+```
+
+**2. Centralized Error Handling**
+
+```typescript
+// lib/server/core/errors.ts
+export class ApiError extends Error {
+  constructor(
+    public statusCode: number,
+    message: string,
+    public code?: string,
+  ) {
+    super(message);
+  }
+}
+
+export function handleApiError(error: unknown): NextResponse {
+  if (error instanceof ApiError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      { status: error.statusCode },
+    );
+  }
+  if (error instanceof z.ZodError) {
+    return NextResponse.json(
+      { error: "Validation failed", details: error.errors },
+      { status: 400 },
+    );
+  }
+  console.error(error);
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+}
+```
+
+**3. Input Validation with Zod**
+
+```typescript
+// lib/server/core/validation.ts
+import { z } from "zod";
+
+export const productSchema = z.object({
+  name: z.string().min(1).max(255),
+  price: z.number().positive(),
+  categoryId: z.string().uuid(),
+  description: z.string().optional(),
+});
+
+// Usage in service
+export async function createProduct(data: unknown) {
+  const validated = productSchema.parse(data);
+  // validated is now typed and safe
+}
+```
+
+**4. Pagination Helpers**
+
+```typescript
+// lib/server/core/pagination.ts
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+export function getPagination({ page = 1, limit = 20 }: PaginationParams) {
+  const skip = (page - 1) * limit;
+  const take = Math.min(limit, 100); // Max 100 per page
+  return { skip, take };
+}
+
+export function createPaginatedResponse<T>(
+  data: T[],
+  total: number,
+  page: number,
+  limit: number,
+) {
+  return {
+    data,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+```
+
+**5. Type-Safe API Responses**
+
+```typescript
+// lib/server/types/api.ts
+export interface ApiSuccessResponse<T> {
+  data: T;
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+  };
+}
+
+export interface ApiErrorResponse {
+  error: string;
+  code?: string;
+  details?: unknown;
+}
+
+// Usage in service return types
+export async function listProducts(
+  params: PaginationParams,
+): Promise<ApiSuccessResponse<Product[]>> {
+  // Implementation
+}
+```
+
+### Issue Fixes
+
+**Common Issue: Prisma Client Not Singleton**
+
+- Problem: Creating multiple Prisma Client instances causes connection pool exhaustion
+- Fix: Export a singleton Prisma Client instance from `lib/server/db/prisma.ts`
+
+```typescript
+// lib/server/db/prisma.ts
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+export const prisma = globalForPrisma.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+```
+
+**Common Issue: Type Safety Loss**
+
+- Problem: Using `any` or loose types in API responses
+- Fix: Use Prisma-generated types and Zod validation
+
+```typescript
+import { productSchema } from "@/lib/server/core/validation";
+const validatedData = productSchema.parse(body);
+```
+
+**Common Issue: Transaction Safety**
+
+- Problem: Multiple related operations without atomicity
+- Fix: Use Prisma transactions for related operations
+
+```typescript
+await prisma.$transaction([
+  prisma.order.create({ data: orderData }),
+  prisma.inventory.update({
+    where: { id },
+    data: { quantity: { decrement: 1 } },
+  }),
+]);
+```
+
+### Backend Service Integration
+
+When combining Next.js backend with the service layer:
+
+```typescript
+// lib/services/products/get.ts (server-side)
+"use server";
+
+import { prisma } from "@/lib/server/db/prisma";
+import { Product } from "./data";
+
+export async function getProducts(): Promise<Product[]> {
+  return prisma.product.findMany({
+    where: { active: true },
+    include: { category: true },
+  });
+}
+```
+
 ## Review Checklist
+
+### Frontend
 
 - API calls are inside `lib/services`, not scattered in UI files.
 - Service file naming follows `data/get/post/put/delete/hook/index/utils`.
 - Components are placed in the right folder (`ui`, `shared`, `features`, `providers`).
 - Dashboard routes follow `app/dashboard/<domain>/<feature>/page.tsx`.
 - Hooks are used for server state and pages handle loading/error states cleanly.
+
+### Backend
+
+- **Prisma Client is used as a singleton** - check `lib/server/db/prisma.ts` exists with global pattern.
+- **Never use raw SQL queries** - all DB operations use Prisma Client methods.
+- **Business logic lives in `lib/server/services/`** - not in API route handlers.
+- **All inputs validated with Zod** - no `any` types, use `schema.parse()`.
+- **Centralized error handling** - use `handleApiError()` in all API routes.
+- **Type-safe API responses** - use `ApiSuccessResponse<T>` and `ApiErrorResponse`.
+- **Pagination implemented consistently** - use `getPagination()` helper.
+- **Proper error logging** - errors logged on server, sanitized before sending to client.
+- **No direct Prisma calls in API routes** - routes call services, services use Prisma.
+
+### SQL Rules
+
+- CREATE/UPDATE queries use `ON CONFLICT DO UPDATE SET` with `id` field.
+- DELETE queries use `ON CONFLICT DO NOTHING`.
+- All SQL-like queries in lowercase.
+- Parameter syntax uses `@` instead of `$1` positional parameters.
