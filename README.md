@@ -27,5 +27,6 @@ Install one skill globally:
 npx skills add JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-golang-backend-skill -g -y
 npx skills add JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-nextjs-skill -g -y
 npx skills add JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-ui-skill -g -y
+npx skills add JohnKinyanjui/kinyanjui-dev-skills --skill kinyanjui-flutter-skill -g -y
 
 ```
