@@ -257,6 +257,19 @@ Feature-only widgets should live in `ui/widgets`.
 Keep screens focused on layout, user interaction, and provider watching.
 Move repeated UI pieces into widgets.
 
+### Widget Extraction Policy
+
+Always keep small one-off UI fragments inline instead of extracting them into
+private widget classes or widget-builder functions. If the extracted private UI
+only wraps a few lines of layout and is not reused, inline it directly into the
+screen's `build` method so the local UI flow is easier to read.
+
+Do not leave big widgets inside screen files. If a widget is large, reused,
+stateful, visually distinct, or has meaningful behavior, move it into the
+feature's `ui/widgets` folder with a clear public class name. Screen files should
+own route-level state and composition, while substantial UI pieces should live in
+widgets.
+
 ## Screen Folder
 
 Use:
